@@ -109,6 +109,9 @@ class ToolRegistry:
         self._tools.pop(name, None)
         logger.debug("Unregistered tool '%s'", name)
 
+    def __contains__(self, name: str) -> bool:
+        return name in self._tools
+
     def get_tool(self, name: str) -> Optional[Tool]:
         """Look up a tool by name."""
         return self._tools.get(name)

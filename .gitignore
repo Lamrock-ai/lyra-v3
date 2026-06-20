@@ -13,3 +13,8 @@ config/*.token
 *.log
 .DS_Store
 Thumbs.db
+
+data/memory/
+*.db
+*.db-shm
+*.db-wal

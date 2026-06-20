@@ -16,7 +16,18 @@ from .consolidation import ConsolidationAgent
 
 logger = logging.getLogger(__name__)
 
-TAG_PATTERN = re.compile(r"^(fast|deep|creative|code|research|agent):?\s*", re.IGNORECASE)
+TAG_PATTERN = re.compile(
+    r"^(\[I\]|\[CF\]|\[BG\]|\[BG:PROJECT\]|\[voix\]|fast|deep|creative|code|research|agent)[:\s]\s*",
+    re.IGNORECASE,
+)
+WORD_TO_TAG = {
+    "fast": "[I]",
+    "deep": "[BG:PROJECT]",
+    "creative": "[BG]",
+    "code": "[CF]",
+    "research": "[BG:PROJECT]",
+    "agent": "[BG:PROJECT]",
+}
 
 
 class Orchestrator:
@@ -74,18 +85,22 @@ class Orchestrator:
             full_prompt = f"{system}\n\n{context}\n\n---\n\n{cleaned}"
 
             # --- 4: LLM call ---
-            if not self.router.has_available_model(tag):
+            if not self.router.is_any_available():
                 return self._degraded_response(tag)
 
-            response = await self.router.generate(prompt=full_prompt, tag=tag)
+            response = await self.router.generate(
+                tag=tag,
+                messages=[{"role": "user", "content": full_prompt}],
+            )
 
             # --- 5: tool execution ---
-            response = await self._execute_tools(response)
+            content = response.content
+            content = await self._execute_tools(content)
 
             # --- 6: fire-and-forget consolidation ---
-            asyncio.ensure_future(self._consolidate(cleaned, response, tag, channel))
+            asyncio.ensure_future(self._consolidate(cleaned, content, tag, channel))
 
-            return response
+            return content
 
         except Exception:
             logger.exception("Orchestrator.process_message failed")
@@ -112,10 +127,12 @@ class Orchestrator:
         """Extract a speed tag from the beginning of the message."""
         m = TAG_PATTERN.match(text)
         if m:
-            raw = m.group(1).rstrip(": ").lower()
-            tag = SpeedTag(raw) if raw in SpeedTag._value2member_map_ else SpeedTag.FAST
+            raw = m.group(1)
+            # Map word aliases to bracket tags
+            mapped = WORD_TO_TAG.get(raw.lower(), raw)
+            tag = SpeedTag(mapped) if mapped in SpeedTag._value2member_map_ else SpeedTag.INSTANT
             return tag, text[m.end():]
-        return SpeedTag.FAST, text
+        return SpeedTag.INSTANT, text
 
     def _load_system_prompt(self) -> str:
         """Read the system prompt from disk (cached)."""
@@ -160,7 +177,7 @@ class Orchestrator:
             r"```tool\s*\n(.*?)\n```", re.DOTALL
         )
 
-        def _try_exec(match) -> str:
+        async def _try_exec(match) -> str:
             block = match.group(1).strip()
             try:
                 request = json.loads(block)
@@ -171,15 +188,19 @@ class Orchestrator:
             params = request.get("params", {})
 
             if not tool_name or tool_name not in self.registry:
-                return f"⚠️ Outil inconnu : {tool_name}"
+                return f"? Outil inconnu : {tool_name}"
 
-            try:
-                result = self.registry.execute(tool_name, **params)
-                return f"**Résultat de {tool_name}** :\n{result}"
-            except Exception as exc:
-                return f"⚠️ Erreur lors de l'exécution de {tool_name} : {exc}"
+            result = await self.registry.execute_tool(tool_name, params)
+            if result.success:
+                return f"**{tool_name}** : {result.output}"
+            return f"? Erreur {tool_name} : {result.error}"
 
-        return tool_pattern.sub(_try_exec, response)
+        # Apply async sub to sync string — process matches sequentially
+        matches = list(tool_pattern.finditer(response))
+        for m in matches:
+            replacement = await _try_exec(m)
+            response = response.replace(m.group(0), replacement, 1)
+        return response
 
     async def _consolidate(self, msg: str, response: str, tag: SpeedTag, channel: str) -> None:
         """Fire-and-forget memory consolidation."""

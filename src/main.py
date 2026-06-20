@@ -40,14 +40,14 @@ async def main():
     bus = EventBus()
     await bus.start()
     sup = SupervisionAgent(bus)
-    router = LLMRouter(config)
+    router = LLMRouter()
     speed = SpeedRouter()
     registry = ToolRegistry()
 
     # Enregistre les outils
-    browser.register(registry)
-    filesystem.register(registry)
-    automation.register(registry)
+    await browser.register(registry)
+    await filesystem.register(registry)
+    await automation.register(registry)
 
     memory = MemoryOrchestrator(config)
     await memory.start()
@@ -56,7 +56,7 @@ async def main():
     consolidation = ConsolidationAgent(bus, memory)
 
     # Vérifie la disponibilité des LLMs
-    llms = [p.name for p in router.providers if p.is_available()]
+    llms = [p.name for p in router._all_available]
     logging.info(f"LLMs disponibles: {llms or 'AUCUN — mode degradé'}")
 
     if args.interface == "cli":
