@@ -13,7 +13,7 @@ import os
 import subprocess
 from typing import Optional
 
-from lyra.core.config import ConfigManager
+from src.kernel.config import ConfigManager
 
 logger = logging.getLogger(__name__)
 

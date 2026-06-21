@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 from typing import List
 
-from lyra.core.config import ConfigManager
+from src.kernel.config import ConfigManager
 
 logger = logging.getLogger(__name__)
 

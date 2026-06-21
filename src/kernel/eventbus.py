@@ -59,10 +59,28 @@ class EventBus:
         await self._queue.put((prio, event))
         logger.debug("Published event %s (prio=%s)", event.type, event.priority.value)
 
+    async def emit(self, event_type: str, payload: dict | None = None, priority: Priority | None = None, source: str = "system") -> None:
+        """Convenience method: create an *Event* and publish it."""
+        event = Event(
+            type=event_type,
+            payload=payload or {},
+            priority=priority or Priority.MEDIUM,
+            source=source,
+        )
+        await self.publish(event)
+
     def subscribe(self, event_type: str, handler: Handler) -> None:
         """Register a coroutine handler for a given event type."""
         self._subscribers.setdefault(event_type, []).append(handler)
         logger.debug("Subscribed handler %s for '%s'", handler.__name__, event_type)
+
+    def on(self, event_type: str, handler: Handler) -> None:
+        """Alias for :meth:`subscribe`."""
+        self.subscribe(event_type, handler)
+
+    def off(self, event_type: str, handler: Handler) -> None:
+        """Alias for :meth:`unsubscribe`."""
+        self.unsubscribe(event_type, handler)
 
     def unsubscribe(self, event_type: str, handler: Handler) -> None:
         """Remove a previously registered handler."""

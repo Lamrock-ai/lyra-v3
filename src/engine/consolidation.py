@@ -12,6 +12,7 @@ from typing import Any, Optional
 
 from src.kernel.eventbus import EventBus
 from src.kernel.config import ConfigManager
+from src.kernel.models import Event
 from .memory import MemoryOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -51,13 +52,13 @@ class ConsolidationAgent:
         self.eventbus.off("message.processed", self._handle_message)
         logger.info("ConsolidationAgent stopped.")
 
-    async def _handle_message(self, event_data: dict) -> None:
+    async def _handle_message(self, event: Event) -> None:
         """Extract facts from a processed message."""
         if not self._running:
             return
         try:
-            text = event_data.get("text", "")
-            source = event_data.get("source", "conversation")
+            text = event.payload.get("text", "")
+            source = event.payload.get("source", "conversation")
 
             # Delegate to memory.consolidate for basic fact extraction
             await self.memory.consolidate(text, {"channel": source})

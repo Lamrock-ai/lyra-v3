@@ -13,7 +13,7 @@ from typing import Optional
 
 import httpx
 
-from lyra.core.config import ConfigManager
+from src.kernel.config import ConfigManager
 
 logger = logging.getLogger(__name__)
 

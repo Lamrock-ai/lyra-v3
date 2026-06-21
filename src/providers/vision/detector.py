@@ -8,7 +8,7 @@ importable even when optional dependencies are missing.
 import logging
 from typing import Any, Dict, List, Optional
 
-from lyra.core.config import ConfigManager
+from src.kernel.config import ConfigManager
 
 logger = logging.getLogger(__name__)
 

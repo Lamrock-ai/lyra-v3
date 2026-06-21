@@ -4,7 +4,8 @@ Relies on a TelegramBridge for the actual polling/sending.
 """
 
 import logging
-from src.kernel.event import Event
+
+from src.kernel.models import Event, Priority
 
 log = logging.getLogger(__name__)
 
@@ -27,33 +28,33 @@ class TelegramBot:
         self._running = True
         log.info("TelegramBot demarre via bridge=%s", self.bridge.__class__.__name__)
 
-        # Enregistre le handler sur le bridge
-        self.bridge.on_message(self._handle_message)
-
         try:
-            await self.bridge.start_polling()
+            await self.bridge.start_polling(self._handle_message)
         except Exception:
             log.exception("TelegramBot polling error")
         finally:
             self._running = False
 
-    async def _handle_message(self, chat_id: int, text: str,
-                              message_id: int = None) -> None:
+    async def _handle_message(self, chat_id: str, text: str) -> None:
         """Callback interne : reçoit un message du bridge et le traite."""
         log.debug("Message Telegram de %s: %s", chat_id, text[:80])
 
-        # Crée un événement
+        # Publish event on bus
         event = Event(
-            source="telegram",
+            type="message.incoming",
             payload={
                 "chat_id": chat_id,
                 "text": text,
-                "message_id": message_id,
+                "channel": "telegram",
             },
+            priority=Priority.MEDIUM,
+            source="telegram",
         )
 
         try:
-            response = await self.orchestrator.process_message(text, event=event)
+            response = await self.orchestrator.process_message(
+                text, channel="telegram"
+            )
             reply = str(response) if response else "Je n'ai pas de réponse à te donner."
         except Exception as exc:
             log.exception("Erreur dans le traitement du message Telegram")

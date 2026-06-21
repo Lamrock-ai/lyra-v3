@@ -8,6 +8,7 @@ import re
 from typing import Optional
 
 from src.kernel.eventbus import EventBus
+from src.kernel.models import Event
 from src.providers.llm.router import LLMRouter, SpeedTag
 from src.providers.tools.registry import ToolRegistry
 from src.kernel.config import ConfigManager
@@ -115,11 +116,11 @@ class Orchestrator:
     # Internal
     # ------------------------------------------------------------------
 
-    async def _on_incoming_message(self, event_data: dict) -> None:
+    async def _on_incoming_message(self, event: Event) -> None:
         """Event bus handler."""
-        msg = event_data.get("text", "")
-        tag = event_data.get("tag")
-        channel = event_data.get("channel", "cli")
+        msg = event.payload.get("text", "")
+        tag = event.payload.get("tag")
+        channel = event.payload.get("channel", "cli")
         response = await self.process_message(msg, tag=tag, channel=channel)
         await self.eventbus.emit("message.response", {"text": response, "channel": channel})
 

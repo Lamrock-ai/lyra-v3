@@ -267,7 +267,7 @@ class MemoryOrchestrator:
             return
         try:
             self._embedder = SentenceTransformer("all-MiniLM-L6-v2")
-            self._vector_dim = self._embedder.get_sentence_embedding_dimension()
+            self._vector_dim = getattr(self._embedder, 'get_embedding_dimension', self._embedder.get_sentence_embedding_dimension)()
             self._faiss_index = faiss.IndexFlatL2(self._vector_dim)
             logger.info("Vector memory initialised (dim=%d).", self._vector_dim)
         except Exception as exc:
